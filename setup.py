@@ -4,18 +4,21 @@ __license__ = "Apache-2.0"
 import setuptools
 
 setuptools.setup(
-    name='jinahub-MY-DUMMY-EXECUTOR',
+    name='jinahub-lightgbm-ranker',
     version='1',
     author='Jina Dev Team',
     author_email='dev-team@jina.ai',
-    description='This is my dummy executor',
-    url='https://github.com/jina-ai/EXECUTOR_REPO_NAME',
+    description='LightGBMRanker allows the usage of any learning-to-rank model trained using LightGBM.',
+    url='https://github.com/jina-ai/executor-lightgbm-ranker',
     classifiers=[
         'Programming Language :: Python :: 3',
         'Operating System :: OS Independent',
     ],
-    py_modules=['jinahub.SUB_PACKAGE_NAME.MODULE_NAME'],
-    package_dir={'jinahub.SUB_PACKAGE_NAME': '.'},
+    py_modules=[
+        'jinahub.ranker.lightgbm_ranker',
+        'jinahub.ranker.lightgbm_ranker_trainer',
+    ],
+    package_dir={'jinahub.ranker': '.'},
     install_requires=open('requirements.txt').readlines(),
     python_requires='>=3.7',
 )

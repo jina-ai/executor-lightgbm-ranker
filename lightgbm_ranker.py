@@ -14,7 +14,7 @@ class MyDummyExecutor(Executor):
     :param embedding_dim: the output dimensionality of the embedding
     """
 
-    def __init__(self, embedding_dim: int = 128, *args, **kwargs ):
+    def __init__(self, embedding_dim: int = 128, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._dim = embedding_dim
 
