@@ -40,6 +40,7 @@ class LightGBMRanker(Executor):
             'tags__document_language',
             'tags__document_pagerank',
         ],
+        label_feature_name: str = 'score',
         query_categorical_features: Optional[List[str]] = None,
         match_categorical_features: Optional[List[str]] = None,
         query_features_before: bool = True,
@@ -57,6 +58,7 @@ class LightGBMRanker(Executor):
         self.match_feature_names = match_feature_names
         self.query_categorical_features = query_categorical_features
         self.match_categorical_features = match_categorical_features
+        self.label_feature_name = label_feature_name
         self.query_features_before = query_features_before
         if self.model_path and os.path.exists(self.model_path):
             self.booster = lightgbm.Booster(model_file=self.model_path)
@@ -77,8 +79,69 @@ class LightGBMRanker(Executor):
     def _get_features_dataset(
         self, query_meta: List[Dict], match_meta: List[List[Dict]]
     ) -> 'lightgbm.Dataset':
-        pass
+        import lightgbm
 
-    @requests
+        def _get_features_per_query(q_meta, m_meta):
+            query_features = np.array(
+                [
+                    [q_meta[feat] for feat in self.query_feature_names]
+                    for _ in range(0, len(m_meta))
+                ]
+            )
+            match_features = np.array(
+                [[meta[feat] for feat in self.match_feature_names] for meta in m_meta]
+            )
+            return query_features, match_features
+
+        q_features, m_features = [], []
+        for q_meta, m_meta in zip(query_meta, match_meta):
+            q_f, m_f = _get_features_per_query(q_meta, m_meta)
+            q_features.append(q_f)
+            m_features.append(m_f)
+
+        query_features = np.vstack(q_features)
+        query_dataset = lightgbm.Dataset(
+            data=query_features,
+            feature_name=self.query_feature_names,
+            categorical_feature=self.query_categorical_features,
+            free_raw_data=False,
+        )
+
+        match_features = np.vstack(m_features)
+        match_dataset = lightgbm.Dataset(
+            data=match_features,
+            feature_name=self.match_feature_names,
+            categorical_feature=self.match_categorical_features,
+            free_raw_data=False,
+        )
+        if self.query_features_before:
+            return query_dataset.construct().add_features_from(
+                match_dataset.construct()
+            )
+        else:
+            return match_dataset.construct().add_features_from(
+                query_dataset.construct()
+            )
+
+    @requests(on='/search')
     def score(self, docs: DocumentArray, **kwargs):
-        pass
+        query_metas = []
+        matches_metas = []
+        for doc in docs:
+            query_meta = {}
+            match_metas = []
+            for feature_name in self.query_feature_names:
+                query_meta[feature_name] = doc.tags.get(feature_name, 0)
+            query_metas.append(query_meta)
+            for match in doc.matches:
+                match_meta = {}
+                for feature_name in self.match_feature_names:
+                    match_meta[feature_name] = match.tags.get(feature_name, 0)
+                match_metas.append(match_meta)
+            matches_metas.append(match_meta)
+            dataset = self._get_features_dataset(
+                query_meta=query_meta, match_meta=match_meta
+            )
+            doc.scores[self.label_feature_name] = self.booster.predict(
+                dataset.get_data()
+            )
