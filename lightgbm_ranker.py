@@ -2,7 +2,7 @@ __copyright__ = "Copyright (c) 2020-2021 Jina AI Limited. All rights reserved."
 __license__ = "Apache-2.0"
 
 import os
-from typing import Dict, Optional, Tuple, List, Union
+from typing import Dict, Optional, Tuple, List
 
 import lightgbm
 import numpy as np
@@ -68,6 +68,10 @@ class LightGBMRanker(Executor):
             self.booster = lightgbm.Booster(model_file=self.model_path)
             model_num_features = self.booster.num_feature()
             expected_num_features = len(self.query_features + self.match_features)
+            if categorical_query_features:
+                expected_num_features += len(categorical_query_features)
+            if categorical_match_features:
+                expected_num_features += len(categorical_match_features)
             if model_num_features != expected_num_features:
                 raise ValueError(
                     f'The number of features expected by the LightGBM model {model_num_features} is different'
