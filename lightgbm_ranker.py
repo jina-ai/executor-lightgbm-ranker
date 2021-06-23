@@ -47,12 +47,6 @@ class LightGBMRanker(Executor):
         *args,
         **kwargs,
     ):
-        super().__init__(
-            query_required_keys=query_feature_names,
-            match_required_keys=match_feature_names,
-            *args,
-            **kwargs,
-        )
         self.model_path = model_path
         self.query_feature_names = query_feature_names
         self.match_feature_names = match_feature_names

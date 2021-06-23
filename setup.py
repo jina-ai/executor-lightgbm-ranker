@@ -16,7 +16,6 @@ setuptools.setup(
     ],
     py_modules=[
         'jinahub.ranker.lightgbm_ranker',
-        'jinahub.ranker.lightgbm_ranker_trainer',
     ],
     package_dir={'jinahub.ranker': '.'},
     install_requires=open('requirements.txt').readlines(),
