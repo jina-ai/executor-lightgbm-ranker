@@ -31,11 +31,11 @@ def _pretrained_model(model_path):
         y_train,
         group=q_train,
         free_raw_data=False,
-        feature_name=['tags__query_length', 'tags__query_language']
+        feature_name=['query_length', 'query_language']
         + [
-            'tags__document_length',
-            'tags__document_language',
-            'tags__document_pagerank',
+            'document_length',
+            'document_language',
+            'document_pagerank',
         ],
         params={
             'min_data_in_bin': 1,
@@ -98,7 +98,7 @@ def param():
 @pytest.fixture
 def documents():
     document_array = DocumentArray()
-    document1 = Document(tags={'query_length': 1.0, 'query_language': 0.0})
+    document1 = Document(tags={'query_length': 5.0, 'query_language': 1})
     document1.matches.append(
         Document(
             tags={
@@ -130,7 +130,7 @@ def documents():
         )
     )
 
-    document2 = Document(tags={'query_length': 1.0, 'query_language': 0.0})
+    document2 = Document(tags={'query_length': 1.0, 'query_language': 2})
     document2.matches.append(
         Document(
             tags={
@@ -176,3 +176,6 @@ def test_lightgbm_rank(model_path, documents):
         ],
     )
     ranker.rank(docs=documents)
+    for doc in documents:
+        print(doc.scores)
+    raise Exception()

@@ -32,13 +32,13 @@ class LightGBMRanker(Executor):
         self,
         model_path: Optional[str] = 'tmp/model.txt',
         query_feature_names: Tuple[str] = [
-            'tags__query_length',
-            'tags__query_language',
+            'query_length',
+            'query_language',
         ],
         match_feature_names: Tuple[str] = [
-            'tags__document_length',
-            'tags__document_language',
-            'tags__document_pagerank',
+            'document_length',
+            'document_language',
+            'document_pagerank',
         ],
         label_feature_name: str = 'score',
         query_categorical_features: Optional[List[str]] = None,
@@ -76,10 +76,11 @@ class LightGBMRanker(Executor):
     ) -> 'lightgbm.Dataset':
         q_features, m_features = [], []
         for query_meta, match_metas in zip(query_metas, matches_metas):
-            query_feature = np.asarray(list(query_meta.values()))
+            query_feature = []
             match_feature = []
             for match_meta in match_metas:
                 match_feature.append(list(match_meta.values()))
+                query_feature.append(list(query_meta.values()))
             q_features.append(query_feature)
             m_features.append(match_feature)
 
@@ -99,7 +100,6 @@ class LightGBMRanker(Executor):
             free_raw_data=False,
         )
         if self.query_features_before:
-            print("=====enter========")
             return query_dataset.construct().add_features_from(
                 match_dataset.construct()
             )
@@ -146,7 +146,8 @@ class LightGBMRanker(Executor):
     def rank(self, docs: DocumentArray, **kwargs):
         query_metas, matches_metas = self._extract_metas(docs)
         dataset = self._get_features_dataset(query_metas, matches_metas)
-        print(f"\n{dataset}\n")
+        print(f"extracted feature data set is:\n {dataset.get_data()}")
         predictions = self.booster.predict(dataset.get_data())
+        print(f'boster prediction is \n {predictions}')
         for prediction, doc in zip(predictions, docs):
             doc.scores[self.label_feature_name] = prediction
