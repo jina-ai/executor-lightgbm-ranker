@@ -123,8 +123,7 @@ class LightGBMRanker(Executor):
                 query_dataset.construct()
             )
 
-    @requests(on='/search')
-    def rank(self, docs: DocumentArray, **kwargs):
+    def _extract_metas(self, docs: DocumentArray):
         query_metas = []
         matches_metas = []
         for doc in docs:
@@ -139,9 +138,30 @@ class LightGBMRanker(Executor):
                     match_meta[feature_name] = match.tags.get(feature_name)
                 match_metas.append(match_meta)
             matches_metas.append(match_meta)
-        dataset = self._get_features_dataset(
-            query_meta=query_meta, match_meta=match_meta
+        return query_metas, matches_metas
+
+    @requests(on='/train')
+    def train(self, docs: DocumentArray, **kwargs):
+        query_metas, matches_metas = self._extract_metas(docs)
+        train_set = self._get_features_dataset(query_metas, matches_metas)
+        self.booster = lightgbm.train(
+            train_set=train_set,
+            init_model=self.model,
+            params=self.params,
+            keep_training_booster=True,
         )
-        preds = self.booster.predict(dataset.get_data())
-        for pred, doc in zip(preds, docs):
-            doc.scores[self.label_feature_name] = pred
+
+    def save(self):
+        """Save the trained lightgbm ranker model."""
+        if self.booster:
+            self.booster.save_model(self.model_path)
+
+    @requests(on='/search')
+    def rank(self, docs: DocumentArray, **kwargs):
+        query_metas, matches_metas = self._extract_metas(docs)
+        dataset = self._get_features_dataset(
+            query_meta=query_metas, match_meta=matches_metas
+        )
+        predictions = self.booster.predict(dataset.get_data())
+        for prediction, doc in zip(predictions, docs):
+            doc.scores[self.label_feature_name] = prediction
