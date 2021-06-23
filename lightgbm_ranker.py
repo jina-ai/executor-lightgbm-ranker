@@ -13,13 +13,16 @@ from jina.excepts import PretrainedModelFileDoesNotExist
 class LightGBMRanker(Executor):
     """
     Computes a relevance score for each match using a pretrained Ltr model trained with LightGBM (https://lightgbm.readthedocs.io/en/latest/index.html)
-    :param model_path: path to the pretrained model previously trained using LightGBM
+    :param model_path: path to the pretrained model previously trained using LightGBM.
+    :param params: Parameters used to train the LightGBM learning-to-rank model.
     :param query_features: name of the features to extract from query Documents and used to compute relevance scores by the model loaded
     from model_path
     :param match_features: name of the features to extract from match Documents and used to compute relevance scores by the model loaded
     from model_path
-    :param query_categorical_features: name of features contained in `query_features` corresponding to categorical features.
-    :param match_categorical_features: name of features contained in `match_features` corresponding to categorical features.
+    :param label: If call :meth:`train` endpoint, the label will be used as groundtruth for model training. If on :meth:`rank` endpoint, the
+    label will be used to assign a score to :attr:`Document.scores` field.
+    :param categorical_query_features: name of features contained in `query_features` corresponding to categorical features.
+    :param categorical_match_features: name of features contained in `match_features` corresponding to categorical features.
     :param query_features_before: True if `query_features` must be placed before the `match` ones in the `dataset` used for prediction.
     :param args: Additional positional arguments
     :param kwargs: Additional keyword arguments
@@ -45,7 +48,7 @@ class LightGBMRanker(Executor):
             'document_language',
             'document_pagerank',
         ],
-        label_feature: str = 'relevance',
+        label: str = 'relevance',
         categorical_query_features: Optional[List[str]] = None,
         categorical_match_features: Optional[List[str]] = None,
         query_features_before: bool = True,
@@ -59,7 +62,7 @@ class LightGBMRanker(Executor):
         self.match_features = match_features
         self.categorical_query_features = categorical_query_features
         self.categorical_match_features = categorical_match_features
-        self.label_feature = label_feature
+        self.label = label
         self.query_features_before = query_features_before
         if self.model_path and os.path.exists(self.model_path):
             self.booster = lightgbm.Booster(model_file=self.model_path)
@@ -122,9 +125,13 @@ class LightGBMRanker(Executor):
 
     @requests(on='/train')
     def train(self, docs: DocumentArray, **kwargs):
-        """The :meth:`train` endpoint allows user to train ther lightgbm ranker
+        """The :meth:`train` endpoint allows user to train the lightgbm ranker
         in an incremental manner. The features will be extracted from the `attr`:`tags`,
-        including all the
+        including all the :attr:`query_features` and :attr:`match_features`. The label/groundtruth of the
+        training data will be the :attr:`label` field.
+
+        :param docs: :class:`DocumentArray` passed by the user or previous executor.
+        :param kwargs: Additional key value arguments.
         """
         train_set = self._get_features_dataset(docs)
         self.booster = lightgbm.train(
@@ -137,7 +144,16 @@ class LightGBMRanker(Executor):
 
     @requests(on='/search')
     def rank(self, docs: DocumentArray, **kwargs):
+        """The :meth:`rank` endpoint allows user to assign a score to their docs given by pre-trained
+          :class:`LightGBMRanker`. Once load, the :class:`LightGBMRanker` will load the pre-trained model
+          and make predictions on the documents. The predictions are made based on extracted dataset from
+          query and matches. The :attr:`query_features` will be extracted from query document :attr:`tags`
+          and `match_features` will be extracted from corresponded matches documents tags w.r.t the query document.
+
+        :param docs: :class:`DocumentArray` passed by the user or previous executor.
+        :param kwargs: Additional key value arguments.
+        """
         dataset = self._get_features_dataset(docs)
         predictions = self.booster.predict(dataset.get_data())
         for prediction, doc in zip(predictions, docs):
-            doc.scores[self.label_feature] = prediction
+            doc.scores[self.label] = prediction
