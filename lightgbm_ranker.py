@@ -131,7 +131,7 @@ class LightGBMRanker(Executor):
                 for feature_name in self.match_feature_names:
                     match_meta[feature_name] = match.tags.get(feature_name)
                 match_metas.append(match_meta)
-            matches_metas.append(match_meta)
+            matches_metas.append(match_metas)
         return query_metas, matches_metas
 
     @requests(on='/train')
