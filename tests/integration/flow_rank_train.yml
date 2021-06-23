@@ -1,0 +1,18 @@
+jtype: Flow
+version: '1'
+with:
+  workspace: $RANKER_WORKDIR
+  py_modules:
+    - lightgbm_ranker.py
+pods:
+  - name: trainer
+    uses:
+      jtype: LightGBMRanker
+      with:
+        model_path: model.txt
+        query_features: ['query_price', 'query_size']
+        match_features: ['match_price', 'match_size']
+        categorical_query_features: ['query_brand']
+        categorical_match_features: ['match_brand']
+        label: 'num_clicks'
+

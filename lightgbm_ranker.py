@@ -78,23 +78,28 @@ class LightGBMRanker(Executor):
                     f'than the ones provided in input {expected_num_features}'
                 )
         else:
-            raise PretrainedModelFileDoesNotExist(
-                f'model {self.model_path} does not exist'
-            )
+            self.booster = None
 
     def _get_features_dataset(
         self,
         docs: DocumentArray,
     ) -> 'lightgbm.Dataset':
-        q_features, m_features, group = [], [], []
+        q_features, m_features, group, labels = [], [], [], []
+        query_feature_names = self.query_features
+        if self.categorical_query_features:
+            query_feature_names += self.categorical_query_features
+        match_feature_names = self.match_features
+        if self.categorical_match_features:
+            match_feature_names += self.categorical_match_features
         for doc in docs:
             query_feature = []
             match_feature = []
-            query_values = [doc.tags.get(feature) for feature in self.query_features]
+            query_values = [doc.tags.get(feature) for feature in query_feature_names]
             for match in doc.matches:
                 match_values = [
-                    match.tags.get(feature) for feature in self.match_features
+                    match.tags.get(feature) for feature in match_feature_names
                 ]
+                labels.append(match.tags.get(self.label))
                 match_feature.append(match_values)
                 query_feature.append(query_values)
             group.append(len(doc.matches))
@@ -105,7 +110,7 @@ class LightGBMRanker(Executor):
         query_dataset = lightgbm.Dataset(
             data=query_features,
             group=group,
-            feature_name=self.query_features,
+            feature_name=query_feature_names,
             categorical_feature=self.categorical_query_features,
             free_raw_data=False,
         )
@@ -114,7 +119,8 @@ class LightGBMRanker(Executor):
         match_dataset = lightgbm.Dataset(
             data=match_features,
             group=group,
-            feature_name=self.match_features,
+            label=labels,
+            feature_name=match_feature_names,
             categorical_feature=self.categorical_match_features,
             free_raw_data=False,
         )
@@ -138,11 +144,19 @@ class LightGBMRanker(Executor):
         :param kwargs: Additional key value arguments.
         """
         train_set = self._get_features_dataset(docs)
+        categorical_feature = []
+        if self.categorical_query_features:
+            categorical_feature += self.categorical_query_features
+        if self.categorical_match_features:
+            categorical_feature += self.categorical_match_features
+        if not categorical_feature:
+            categorical_feature = 'auto'
         self.booster = lightgbm.train(
             train_set=train_set,
             init_model=self.booster,
             params=self.params,
             keep_training_booster=True,
+            categorical_feature=categorical_feature,
         )
         self.booster.save_model(self.model_path)
 
@@ -157,6 +171,10 @@ class LightGBMRanker(Executor):
         :param docs: :class:`DocumentArray` passed by the user or previous executor.
         :param kwargs: Additional key value arguments.
         """
+        if not os.path.exists(self.model_path):
+            raise PretrainedModelFileDoesNotExist(
+                f'model {self.model_path} does not exist. Please train your model first.'
+            )
         dataset = self._get_features_dataset(docs)
         predictions = self.booster.predict(dataset.get_data())
         for prediction, doc in zip(predictions, docs):
