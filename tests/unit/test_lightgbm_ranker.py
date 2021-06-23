@@ -169,8 +169,8 @@ def documents():
 def test_lightgbm_rank(model_path, documents):
     ranker = LightGBMRanker(
         model_path=model_path,
-        query_feature_names=['query_length', 'query_language'],
-        match_feature_names=[
+        query_features=['query_length', 'query_language'],
+        match_features=[
             'document_length',
             'document_language',
             'document_pagerank',
@@ -184,8 +184,8 @@ def test_lightgbm_rank(model_path, documents):
 def test_lightgbm_train(model_path, documents):
     ranker = LightGBMRanker(
         model_path=model_path,
-        query_feature_names=['query_length', 'query_language'],
-        match_feature_names=[
+        query_features=['query_length', 'query_language'],
+        match_features=[
             'document_length',
             'document_language',
             'document_pagerank',

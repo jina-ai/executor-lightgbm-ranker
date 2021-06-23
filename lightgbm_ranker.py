@@ -14,13 +14,13 @@ class LightGBMRanker(Executor):
     """
     Computes a relevance score for each match using a pretrained Ltr model trained with LightGBM (https://lightgbm.readthedocs.io/en/latest/index.html)
     :param model_path: path to the pretrained model previously trained using LightGBM
-    :param query_feature_names: name of the features to extract from query Documents and used to compute relevance scores by the model loaded
+    :param query_features: name of the features to extract from query Documents and used to compute relevance scores by the model loaded
     from model_path
-    :param match_feature_names: name of the features to extract from match Documents and used to compute relevance scores by the model loaded
+    :param match_features: name of the features to extract from match Documents and used to compute relevance scores by the model loaded
     from model_path
-    :param query_categorical_features: name of features contained in `query_feature_names` corresponding to categorical features.
-    :param match_categorical_features: name of features contained in `match_feature_names` corresponding to categorical features.
-    :param query_features_before: True if `query_feature_names` must be placed before the `match` ones in the `dataset` used for prediction.
+    :param query_categorical_features: name of features contained in `query_features` corresponding to categorical features.
+    :param match_categorical_features: name of features contained in `match_features` corresponding to categorical features.
+    :param query_features_before: True if `query_features` must be placed before the `match` ones in the `dataset` used for prediction.
     :param args: Additional positional arguments
     :param kwargs: Additional keyword arguments
     .. note::
@@ -36,18 +36,18 @@ class LightGBMRanker(Executor):
             'boosting_type': 'gbdt',
             'objective': 'lambdarank',
         },
-        query_feature_names: Tuple[str] = [
+        query_features: Tuple[str] = [
             'query_length',
             'query_language',
         ],
-        match_feature_names: Tuple[str] = [
+        match_features: Tuple[str] = [
             'document_length',
             'document_language',
             'document_pagerank',
         ],
-        label_feature_name: str = 'relevance',
-        query_categorical_features: Optional[List[str]] = None,
-        match_categorical_features: Optional[List[str]] = None,
+        label_feature: str = 'relevance',
+        categorical_query_features: Optional[List[str]] = None,
+        categorical_match_features: Optional[List[str]] = None,
         query_features_before: bool = True,
         *args,
         **kwargs,
@@ -55,18 +55,16 @@ class LightGBMRanker(Executor):
         super(LightGBMRanker, self).__init__(*args, **kwargs)
         self.params = params
         self.model_path = model_path
-        self.query_feature_names = query_feature_names
-        self.match_feature_names = match_feature_names
-        self.query_categorical_features = query_categorical_features
-        self.match_categorical_features = match_categorical_features
-        self.label_feature_name = label_feature_name
+        self.query_features = query_features
+        self.match_features = match_features
+        self.categorical_query_features = categorical_query_features
+        self.categorical_match_features = categorical_match_features
+        self.label_feature = label_feature
         self.query_features_before = query_features_before
         if self.model_path and os.path.exists(self.model_path):
             self.booster = lightgbm.Booster(model_file=self.model_path)
             model_num_features = self.booster.num_feature()
-            expected_num_features = len(
-                self.query_feature_names + self.match_feature_names
-            )
+            expected_num_features = len(self.query_features + self.match_features)
             if model_num_features != expected_num_features:
                 raise ValueError(
                     f'The number of features expected by the LightGBM model {model_num_features} is different'
@@ -78,25 +76,30 @@ class LightGBMRanker(Executor):
             )
 
     def _get_features_dataset(
-        self, query_metas: List[Dict], matches_metas: List[List[Dict]]
+        self,
+        docs: DocumentArray,
     ) -> 'lightgbm.Dataset':
         q_features, m_features, group = [], [], []
-        for query_meta, match_metas in zip(query_metas, matches_metas):
+        for doc in docs:
             query_feature = []
             match_feature = []
-            for match_meta in match_metas:
-                match_feature.append(list(match_meta.values()))
-                query_feature.append(list(query_meta.values()))
+            query_values = [doc.tags.get(feature) for feature in self.query_features]
+            for match in doc.matches:
+                match_values = [
+                    match.tags.get(feature) for feature in self.match_features
+                ]
+                match_feature.append(match_values)
+                query_feature.append(query_values)
+            group.append(len(doc.matches))
             q_features.append(query_feature)
             m_features.append(match_feature)
-            group.append(len(match_metas))
 
         query_features = np.vstack(q_features)
         query_dataset = lightgbm.Dataset(
             data=query_features,
             group=group,
-            feature_name=self.query_feature_names,
-            categorical_feature=self.query_categorical_features,
+            feature_name=self.query_features,
+            categorical_feature=self.categorical_query_features,
             free_raw_data=False,
         )
 
@@ -104,8 +107,8 @@ class LightGBMRanker(Executor):
         match_dataset = lightgbm.Dataset(
             data=match_features,
             group=group,
-            feature_name=self.match_feature_names,
-            categorical_feature=self.match_categorical_features,
+            feature_name=self.match_features,
+            categorical_feature=self.categorical_match_features,
             free_raw_data=False,
         )
         if self.query_features_before:
@@ -117,28 +120,13 @@ class LightGBMRanker(Executor):
                 query_dataset.construct()
             )
 
-    def _extract_metas(self, docs: DocumentArray):
-        """Extract feature score map from tags."""
-        query_metas = []
-        matches_metas = []
-        for doc in docs:
-            query_meta = {}
-            match_metas = []
-            for feature_name in self.query_feature_names:
-                query_meta[feature_name] = doc.tags.get(feature_name)
-            query_metas.append(query_meta)
-            for match in doc.matches:
-                match_meta = {}
-                for feature_name in self.match_feature_names:
-                    match_meta[feature_name] = match.tags.get(feature_name)
-                match_metas.append(match_meta)
-            matches_metas.append(match_metas)
-        return query_metas, matches_metas
-
     @requests(on='/train')
     def train(self, docs: DocumentArray, **kwargs):
-        query_metas, matches_metas = self._extract_metas(docs)
-        train_set = self._get_features_dataset(query_metas, matches_metas)
+        """The :meth:`train` endpoint allows user to train ther lightgbm ranker
+        in an incremental manner. The features will be extracted from the `attr`:`tags`,
+        including all the
+        """
+        train_set = self._get_features_dataset(docs)
         self.booster = lightgbm.train(
             train_set=train_set,
             init_model=self.booster,
@@ -149,8 +137,7 @@ class LightGBMRanker(Executor):
 
     @requests(on='/search')
     def rank(self, docs: DocumentArray, **kwargs):
-        query_metas, matches_metas = self._extract_metas(docs)
-        dataset = self._get_features_dataset(query_metas, matches_metas)
+        dataset = self._get_features_dataset(docs)
         predictions = self.booster.predict(dataset.get_data())
         for prediction, doc in zip(predictions, docs):
-            doc.scores[self.label_feature_name] = prediction
+            doc.scores[self.label_feature] = prediction
