@@ -124,24 +124,24 @@ class LightGBMRanker(Executor):
             )
 
     @requests(on='/search')
-    def score(self, docs: DocumentArray, **kwargs):
+    def rank(self, docs: DocumentArray, **kwargs):
         query_metas = []
         matches_metas = []
         for doc in docs:
             query_meta = {}
             match_metas = []
             for feature_name in self.query_feature_names:
-                query_meta[feature_name] = doc.tags.get(feature_name, 0)
+                query_meta[feature_name] = doc.tags.get(feature_name)
             query_metas.append(query_meta)
             for match in doc.matches:
                 match_meta = {}
                 for feature_name in self.match_feature_names:
-                    match_meta[feature_name] = match.tags.get(feature_name, 0)
+                    match_meta[feature_name] = match.tags.get(feature_name)
                 match_metas.append(match_meta)
             matches_metas.append(match_meta)
-            dataset = self._get_features_dataset(
-                query_meta=query_meta, match_meta=match_meta
-            )
-            doc.scores[self.label_feature_name] = self.booster.predict(
-                dataset.get_data()
-            )
+        dataset = self._get_features_dataset(
+            query_meta=query_meta, match_meta=match_meta
+        )
+        preds = self.booster.predict(dataset.get_data())
+        for pred, doc in zip(preds, docs):
+            doc.scores[self.label_feature_name] = pred
