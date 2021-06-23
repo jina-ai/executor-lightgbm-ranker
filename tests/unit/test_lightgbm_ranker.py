@@ -106,7 +106,7 @@ def documents():
                 'document_length': 25.0,
                 'document_language': 0.0,
                 'document_pagerank': 1.0,
-                'relevance': 0.8,
+                'relevance': 8,
             }
         )
     )
@@ -116,7 +116,7 @@ def documents():
                 'document_length': 4.0,
                 'document_language': 0.0,
                 'document_pagerank': 3.0,
-                'relevance': 0.8,
+                'relevance': 8,
             }
         )
     )
@@ -126,7 +126,7 @@ def documents():
                 'document_length': 10.0,
                 'document_language': 0.0,
                 'document_pagerank': 4.0,
-                'relevance': 0.6,
+                'relevance': 6,
             }
         )
     )
@@ -138,7 +138,7 @@ def documents():
                 'document_length': 12.0,
                 'document_language': 0.0,
                 'document_pagerank': 2.0,
-                'relevance': 0.7,
+                'relevance': 7,
             }
         )
     )
@@ -148,7 +148,7 @@ def documents():
                 'document_length': 2.0,
                 'document_language': 0.0,
                 'document_pagerank': 8.0,
-                'relevance': 0.1,
+                'relevance': 1,
             }
         )
     )
@@ -158,7 +158,7 @@ def documents():
                 'document_length': 6.0,
                 'document_language': 0.0,
                 'document_pagerank': 5.0,
-                'relevance': 0.3,
+                'relevance': 3,
             }
         )
     )

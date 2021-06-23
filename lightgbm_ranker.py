@@ -23,7 +23,6 @@ class LightGBMRanker(Executor):
     label will be used to assign a score to :attr:`Document.scores` field.
     :param categorical_query_features: name of features contained in `query_features` corresponding to categorical features.
     :param categorical_match_features: name of features contained in `match_features` corresponding to categorical features.
-    :param query_features_before: True if `query_features` must be placed before the `match` ones in the `dataset` used for prediction.
     :param args: Additional positional arguments
     :param kwargs: Additional keyword arguments
     .. note::
@@ -38,6 +37,8 @@ class LightGBMRanker(Executor):
             'task': 'train',
             'boosting_type': 'gbdt',
             'objective': 'lambdarank',
+            'min_data_in_leaf': 1,
+            'feature_pre_filter': False,
         },
         query_features: Tuple[str] = [
             'query_length',
@@ -63,7 +64,6 @@ class LightGBMRanker(Executor):
         self.categorical_query_features = categorical_query_features
         self.categorical_match_features = categorical_match_features
         self.label = label
-        self.query_features_before = query_features_before
         if self.model_path and os.path.exists(self.model_path):
             self.booster = lightgbm.Booster(model_file=self.model_path)
             model_num_features = self.booster.num_feature()
@@ -81,8 +81,7 @@ class LightGBMRanker(Executor):
             self.booster = None
 
     def _get_features_dataset(
-        self,
-        docs: DocumentArray,
+        self, docs: DocumentArray, task: str = 'predict'
     ) -> 'lightgbm.Dataset':
         q_features, m_features, group, labels = [], [], [], []
         query_feature_names = self.query_features
@@ -106,25 +105,23 @@ class LightGBMRanker(Executor):
             q_features.append(query_feature)
             m_features.append(match_feature)
 
-        query_features = np.vstack(q_features)
         query_dataset = lightgbm.Dataset(
-            data=query_features,
+            data=np.vstack(q_features),
             group=group,
             feature_name=query_feature_names,
             categorical_feature=self.categorical_query_features,
             free_raw_data=False,
         )
 
-        match_features = np.vstack(m_features)
         match_dataset = lightgbm.Dataset(
-            data=match_features,
+            data=np.vstack(m_features),
             group=group,
             label=labels,
             feature_name=match_feature_names,
             categorical_feature=self.categorical_match_features,
             free_raw_data=False,
         )
-        if self.query_features_before:
+        if task == 'predict':
             return query_dataset.construct().add_features_from(
                 match_dataset.construct()
             )
@@ -143,7 +140,7 @@ class LightGBMRanker(Executor):
         :param docs: :class:`DocumentArray` passed by the user or previous executor.
         :param kwargs: Additional key value arguments.
         """
-        train_set = self._get_features_dataset(docs)
+        train_set = self._get_features_dataset(docs, task='train')
         categorical_feature = []
         if self.categorical_query_features:
             categorical_feature += self.categorical_query_features
@@ -177,5 +174,8 @@ class LightGBMRanker(Executor):
             )
         dataset = self._get_features_dataset(docs)
         predictions = self.booster.predict(dataset.get_data())
-        for prediction, doc in zip(predictions, docs):
-            doc.scores[self.label] = prediction
+        flag = 0
+        for doc in docs:
+            for match in doc.matches:
+                match.scores[self.label] = predictions[flag]
+                flag += 1

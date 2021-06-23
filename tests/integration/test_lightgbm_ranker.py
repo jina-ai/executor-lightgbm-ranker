@@ -20,7 +20,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 def documents():
     """
     Imaging you're running an online shoppoing website, with features `brand`, `price`, `color`,
-    label is `num_clicks` (we want to optimize).
+    label is `ndcg` (we want to optimize).
     """
     document_array = DocumentArray()
     document1 = Document(tags={'query_size': 35, 'query_price': 51, 'query_brand': 1})
@@ -30,7 +30,7 @@ def documents():
                 'match_size': 37.0,
                 'match_price': 50,
                 'match_brand': 1,
-                'num_clicks': 749,
+                'relevance': 3,
             }
         )
     )
@@ -40,7 +40,7 @@ def documents():
                 'match_size': 38.0,
                 'match_price': 38,
                 'match_brand': 1,
-                'num_clicks': 1059,
+                'relevance': 5,
             }
         )
     )
@@ -50,7 +50,7 @@ def documents():
                 'match_size': 36.0,
                 'match_price': 51,
                 'match_brand': 2,
-                'num_clicks': 458,
+                'relevance': 2,
             }
         )
     )
@@ -62,7 +62,7 @@ def documents():
                 'match_size': 42.0,
                 'match_price': 106,
                 'match_brand': 3,
-                'num_clicks': 74,  # click is low because expensive.
+                'relevance': 1,  # gain is low because expensive.
             }
         )
     )
@@ -72,7 +72,7 @@ def documents():
                 'match_size': 41.0,
                 'match_price': 38.5,
                 'match_brand': 3,
-                'num_clicks': 2048,
+                'relevance': 7,
             }
         )
     )
@@ -82,7 +82,7 @@ def documents():
                 'match_size': 41.0,
                 'match_price': 79.5,
                 'match_brand': 2,
-                'num_clicks': 1024,
+                'relevance': 6,
             }
         )
     )
@@ -120,8 +120,16 @@ def test_train_offline(documents):
     #         sorted(pred, reverse=True) == pred
     #     )  # assure predictions are ordered since size increases
 
+    def print_scores(resp):
+        for doc in resp.docs:
+            for match in doc.matches:
+                print(f"\n\n{match.scores['relevance'].value}\n\n")
+
     with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
         f.post(on='/train', inputs=documents)
+
+    with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
+        f.post(on='/search', inputs=documents, on_done=print_scores)
 
     # Before Ranker Trainer, the feature is completely rely on `price` tag, `size` can be seen as a bias.
 

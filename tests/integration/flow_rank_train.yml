@@ -14,5 +14,5 @@ pods:
         match_features: ['match_price', 'match_size']
         categorical_query_features: ['query_brand']
         categorical_match_features: ['match_brand']
-        label: 'num_clicks'
+        label: 'relevance'
 
