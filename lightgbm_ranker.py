@@ -174,8 +174,5 @@ class LightGBMRanker(Executor):
             )
         dataset = self._get_features_dataset(docs)
         predictions = self.booster.predict(dataset.get_data())
-        flag = 0
-        for doc in docs:
-            for match in doc.matches:
-                match.scores[self.label] = predictions[flag]
-                flag += 1
+        for prediction, match in zip(predictions, docs.traverse_flat(['m'])):
+            match.scores[self.label] = prediction
