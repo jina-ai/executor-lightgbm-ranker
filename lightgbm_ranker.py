@@ -40,7 +40,7 @@ class LightGBMRanker(Executor):
             'document_language',
             'document_pagerank',
         ],
-        label_feature_name: str = 'score',
+        label_feature_name: str = 'relevance',
         query_categorical_features: Optional[List[str]] = None,
         match_categorical_features: Optional[List[str]] = None,
         query_features_before: bool = True,
@@ -146,8 +146,6 @@ class LightGBMRanker(Executor):
     def rank(self, docs: DocumentArray, **kwargs):
         query_metas, matches_metas = self._extract_metas(docs)
         dataset = self._get_features_dataset(query_metas, matches_metas)
-        print(f"extracted feature data set is:\n {dataset.get_data()}")
         predictions = self.booster.predict(dataset.get_data())
-        print(f'boster prediction is \n {predictions}')
         for prediction, doc in zip(predictions, docs):
             doc.scores[self.label_feature_name] = prediction

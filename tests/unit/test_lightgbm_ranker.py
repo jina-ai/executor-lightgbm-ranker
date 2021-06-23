@@ -31,11 +31,11 @@ def _pretrained_model(model_path):
         y_train,
         group=q_train,
         free_raw_data=False,
-        feature_name=['query_length', 'query_language']
+        feature_name=['tags__query_length', 'tags__query_language']
         + [
-            'document_length',
-            'document_language',
-            'document_pagerank',
+            'tags__document_length',
+            'tags__document_language',
+            'tags__document_pagerank',
         ],
         params={
             'min_data_in_bin': 1,
@@ -57,6 +57,7 @@ def _pretrained_model(model_path):
     }
     booster = lgb.train(param, lgb_train, 2, valid_sets=[lgb_train])
     booster.save_model(model_path)
+    return
 
 
 @pytest.fixture
@@ -177,5 +178,4 @@ def test_lightgbm_rank(model_path, documents):
     )
     ranker.rank(docs=documents)
     for doc in documents:
-        print(doc.scores)
-    raise Exception()
+        assert doc.scores['relevance']
