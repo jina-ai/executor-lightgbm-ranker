@@ -31,6 +31,11 @@ class LightGBMRanker(Executor):
     def __init__(
         self,
         model_path: Optional[str] = 'tmp/model.txt',
+        params: Dict = {
+            'task': 'train',
+            'boosting_type': 'gbdt',
+            'objective': 'lambdarank',
+        },
         query_feature_names: Tuple[str] = [
             'query_length',
             'query_language',
@@ -48,6 +53,7 @@ class LightGBMRanker(Executor):
         **kwargs,
     ):
         super(LightGBMRanker, self).__init__(*args, **kwargs)
+        self.params = params
         self.model_path = model_path
         self.query_feature_names = query_feature_names
         self.match_feature_names = match_feature_names
@@ -74,7 +80,7 @@ class LightGBMRanker(Executor):
     def _get_features_dataset(
         self, query_metas: List[Dict], matches_metas: List[List[Dict]]
     ) -> 'lightgbm.Dataset':
-        q_features, m_features = [], []
+        q_features, m_features, group = [], [], []
         for query_meta, match_metas in zip(query_metas, matches_metas):
             query_feature = []
             match_feature = []
@@ -83,10 +89,12 @@ class LightGBMRanker(Executor):
                 query_feature.append(list(query_meta.values()))
             q_features.append(query_feature)
             m_features.append(match_feature)
+            group.append(len(match_metas))
 
         query_features = np.vstack(q_features)
         query_dataset = lightgbm.Dataset(
             data=query_features,
+            group=group,
             feature_name=self.query_feature_names,
             categorical_feature=self.query_categorical_features,
             free_raw_data=False,
@@ -95,6 +103,7 @@ class LightGBMRanker(Executor):
         match_features = np.vstack(m_features)
         match_dataset = lightgbm.Dataset(
             data=match_features,
+            group=group,
             feature_name=self.match_feature_names,
             categorical_feature=self.match_categorical_features,
             free_raw_data=False,
@@ -132,15 +141,11 @@ class LightGBMRanker(Executor):
         train_set = self._get_features_dataset(query_metas, matches_metas)
         self.booster = lightgbm.train(
             train_set=train_set,
-            init_model=self.model,
+            init_model=self.booster,
             params=self.params,
             keep_training_booster=True,
         )
-
-    def save(self):
-        """Save the trained lightgbm ranker model."""
-        if self.booster:
-            self.booster.save_model(self.model_path)
+        self.booster.save_model(self.model_path)
 
     @requests(on='/search')
     def rank(self, docs: DocumentArray, **kwargs):

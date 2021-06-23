@@ -179,3 +179,16 @@ def test_lightgbm_rank(model_path, documents):
     ranker.rank(docs=documents)
     for doc in documents:
         assert doc.scores['relevance']
+
+
+def test_lightgbm_train(model_path, documents):
+    ranker = LightGBMRanker(
+        model_path=model_path,
+        query_feature_names=['query_length', 'query_language'],
+        match_feature_names=[
+            'document_length',
+            'document_language',
+            'document_pagerank',
+        ],
+    )
+    ranker.train(docs=documents)
