@@ -47,6 +47,7 @@ class LightGBMRanker(Executor):
         *args,
         **kwargs,
     ):
+        super(LightGBMRanker, self).__init__(*args, **kwargs)
         self.model_path = model_path
         self.query_feature_names = query_feature_names
         self.match_feature_names = match_feature_names
@@ -71,27 +72,16 @@ class LightGBMRanker(Executor):
             )
 
     def _get_features_dataset(
-        self, query_meta: List[Dict], match_meta: List[List[Dict]]
+        self, query_metas: List[Dict], matches_metas: List[List[Dict]]
     ) -> 'lightgbm.Dataset':
-        import lightgbm
-
-        def _get_features_per_query(q_meta, m_meta):
-            query_features = np.array(
-                [
-                    [q_meta[feat] for feat in self.query_feature_names]
-                    for _ in range(0, len(m_meta))
-                ]
-            )
-            match_features = np.array(
-                [[meta[feat] for feat in self.match_feature_names] for meta in m_meta]
-            )
-            return query_features, match_features
-
         q_features, m_features = [], []
-        for q_meta, m_meta in zip(query_meta, match_meta):
-            q_f, m_f = _get_features_per_query(q_meta, m_meta)
-            q_features.append(q_f)
-            m_features.append(m_f)
+        for query_meta, match_metas in zip(query_metas, matches_metas):
+            query_feature = np.asarray(list(query_meta.values()))
+            match_feature = []
+            for match_meta in match_metas:
+                match_feature.append(list(match_meta.values()))
+            q_features.append(query_feature)
+            m_features.append(match_feature)
 
         query_features = np.vstack(q_features)
         query_dataset = lightgbm.Dataset(
@@ -109,6 +99,7 @@ class LightGBMRanker(Executor):
             free_raw_data=False,
         )
         if self.query_features_before:
+            print("=====enter========")
             return query_dataset.construct().add_features_from(
                 match_dataset.construct()
             )
@@ -118,6 +109,7 @@ class LightGBMRanker(Executor):
             )
 
     def _extract_metas(self, docs: DocumentArray):
+        """Extract feature score map from tags."""
         query_metas = []
         matches_metas = []
         for doc in docs:
@@ -153,9 +145,8 @@ class LightGBMRanker(Executor):
     @requests(on='/search')
     def rank(self, docs: DocumentArray, **kwargs):
         query_metas, matches_metas = self._extract_metas(docs)
-        dataset = self._get_features_dataset(
-            query_meta=query_metas, match_meta=matches_metas
-        )
+        dataset = self._get_features_dataset(query_metas, matches_metas)
+        print(f"\n{dataset}\n")
         predictions = self.booster.predict(dataset.get_data())
         for prediction, doc in zip(predictions, docs):
             doc.scores[self.label_feature_name] = prediction
