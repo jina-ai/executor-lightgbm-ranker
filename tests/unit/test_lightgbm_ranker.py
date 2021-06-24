@@ -20,7 +20,7 @@ def model_path(tmpdir):
     :param tmpdir:
     :return:
     """
-    model_path = os.path.join('.', 'model.txt')
+    model_path = os.path.join(tmpdir, 'model.txt')
     return model_path
 
 
@@ -30,43 +30,13 @@ def param():
         'task': 'train',
         'boosting_type': 'gbdt',
         'objective': 'lambdarank',
-        'metric': 'ndcg',
-        'ndcg_eval_at': [5, 10],
-        'metric_freq': 1,
-        'is_training_metric': True,
-        'max_bin': 255,
-        'num_trees': 20,
-        'learning_rate': 0.01,
-        'num_leaves': 31,
-        'tree_learner': 'serial',
-        'feature_fraction': 1.0,
         'min_data_in_leaf': 1,
-        'min_sum_hessian_in_leaf': 5.0,
-        'is_enable_sparse': True,
-        'boost_from_average': True,
         'feature_pre_filter': False,
-        'force_col_wise': True,
     }
 
 
-# def test_lightgbm_rank(model_path, documents):
-#     ranker = LightGBMRanker(
-#         model_path=model_path,
-#         query_features=['query_price', 'query_size'],
-#         match_features=[
-#             'match_price',
-#             'match_size',
-#             'match_brand',
-#         ],
-#     )
-#     ranker.rank(docs=documents)
-#     for doc in documents:
-#         for match in doc.matches:
-#             assert match.scores['relevance']
-#             print(match.scores)
-
-
 def test_lightgbm_train(model_path, documents, param):
+    assert not os.path.exists(model_path)
     ranker = LightGBMRanker(
         model_path=model_path,
         query_features=['query_price', 'query_size'],
@@ -78,6 +48,22 @@ def test_lightgbm_train(model_path, documents, param):
         params=param,
     )
     ranker.train(docs=documents)
+    assert os.path.exists(model_path)  # assert model was trained
+
+    ranker = LightGBMRanker(
+        model_path=model_path,
+        query_features=['query_price', 'query_size'],
+        match_features=[
+            'match_price',
+            'match_size',
+            'match_brand',
+        ],
+    )
+    scores = []
+    ranker.rank(docs=documents)
     for doc in documents:
         for match in doc.matches:
-            print(match.scores)
+            assert match.scores['relevance']
+            scores.append(match.scores['relevance'].value)
+    assert len(scores) == 240
+    assert len(set(scores)) == 3  # we have 3 queries.
