@@ -36,6 +36,7 @@ def param():
 
 
 def test_lightgbm_train(model_path, documents, param):
+    """First assert model not exist, then train the model, and use the model to rank."""
     assert not os.path.exists(model_path)
     ranker = LightGBMRanker(
         model_path=model_path,
@@ -65,5 +66,5 @@ def test_lightgbm_train(model_path, documents, param):
         for match in doc.matches:
             assert match.scores['relevance']
             scores.append(match.scores['relevance'].value)
-    assert len(scores) == 240
+    assert len(scores) == 150
     assert len(set(scores)) == 3  # we have 3 queries.

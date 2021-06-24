@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple, List
 import lightgbm
 import numpy as np
 from jina import Executor, DocumentArray, requests
-from jina.excepts import PretrainedModelFileDoesNotExist
+from jina.logging.predefined import default_logger
 
 
 class LightGBMRanker(Executor):
@@ -168,11 +168,13 @@ class LightGBMRanker(Executor):
         :param docs: :class:`DocumentArray` passed by the user or previous executor.
         :param kwargs: Additional key value arguments.
         """
-        if not os.path.exists(self.model_path):
-            raise PretrainedModelFileDoesNotExist(
+        if os.path.exists(self.model_path):
+            dataset = self._get_features_dataset(docs)
+            predictions = self.booster.predict(dataset.get_data())
+            for prediction, match in zip(predictions, docs.traverse_flat(['m'])):
+                match.scores[self.label] = prediction
+        else:
+            default_logger.warning(
                 f'model {self.model_path} does not exist. Please train your model first.'
+                'docs without changes will be passed to the next Executor!'
             )
-        dataset = self._get_features_dataset(docs)
-        predictions = self.booster.predict(dataset.get_data())
-        for prediction, match in zip(predictions, docs.traverse_flat(['m'])):
-            match.scores[self.label] = prediction
