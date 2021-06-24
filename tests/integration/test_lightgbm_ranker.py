@@ -2,11 +2,8 @@ __copyright__ = "Copyright (c) 2020-2021 Jina AI Limited. All rights reserved."
 __license__ = "Apache-2.0"
 
 import os
-import pickle
 
-import pytest
-
-from jina import Document, DocumentArray, Flow
+from jina import Flow
 
 '''
 User -> Train request -> RankTrainer Train -> RankTrainer Dump Weights/Parameters/Model ->
@@ -14,80 +11,6 @@ Ranker Load Model -> Re-rank
 '''
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-
-
-@pytest.fixture
-def documents():
-    """
-    Imaging you're running an online shoppoing website, with features `brand`, `price`, `color`,
-    label is `ndcg` (we want to optimize).
-    """
-    document_array = DocumentArray()
-    document1 = Document(tags={'query_size': 35, 'query_price': 51, 'query_brand': 1})
-    document1.matches.append(
-        Document(
-            tags={
-                'match_size': 37.0,
-                'match_price': 50,
-                'match_brand': 1,
-                'relevance': 3,
-            }
-        )
-    )
-    document1.matches.append(
-        Document(
-            tags={
-                'match_size': 38.0,
-                'match_price': 38,
-                'match_brand': 1,
-                'relevance': 5,
-            }
-        )
-    )
-    document1.matches.append(
-        Document(
-            tags={
-                'match_size': 36.0,
-                'match_price': 51,
-                'match_brand': 2,
-                'relevance': 2,
-            }
-        )
-    )
-
-    document2 = Document(tags={'query_size': 41, 'query_price': 80, 'query_brand': 3})
-    document2.matches.append(
-        Document(
-            tags={
-                'match_size': 42.0,
-                'match_price': 106,
-                'match_brand': 3,
-                'relevance': 1,  # gain is low because expensive.
-            }
-        )
-    )
-    document2.matches.append(
-        Document(
-            tags={
-                'match_size': 41.0,
-                'match_price': 38.5,
-                'match_brand': 3,
-                'relevance': 7,
-            }
-        )
-    )
-    document2.matches.append(
-        Document(
-            tags={
-                'match_size': 41.0,
-                'match_price': 79.5,
-                'match_brand': 2,
-                'relevance': 6,
-            }
-        )
-    )
-    document_array.extend([document1, document2])
-    return document_array
 
 
 def test_train_offline(documents):
@@ -124,6 +47,9 @@ def test_train_offline(documents):
         for doc in resp.docs:
             for match in doc.matches:
                 print(f"\n\n{match.scores['relevance'].value}\n\n")
+
+    with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
+        f.post(on='/search', inputs=documents, on_done=print_scores)
 
     with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
         f.post(on='/train', inputs=documents)
