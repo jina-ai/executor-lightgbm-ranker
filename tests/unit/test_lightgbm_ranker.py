@@ -49,6 +49,7 @@ def test_lightgbm_train(model_path, documents, param):
         params=param,
     )
     ranker.train(docs=documents)
+    ranker.dump(parameters={'model_path': model_path})
     assert os.path.exists(model_path)  # assert model was trained
 
     ranker = LightGBMRanker(
