@@ -159,8 +159,15 @@ class LightGBMRanker(Executor):
         )
 
     @requests(on='/dump')
-    def dump(self, **kwargs):
-        self.booster.save_model(self.model_path)
+    def dump(self, parameters: Dict, **kwargs):
+        model_path = parameters.get('model_path', None)
+        if model_path:
+            self.booster.save_model(model_path)
+        else:
+            self.booster.save_model('tmp/model.txt')
+            logger.info(
+                f'Model {model_path} does not exist. Model has been saved to tmp/model.txt.'
+            )
 
     @requests(on='/load')
     def load(self, parameters: Dict, **kwargs):
@@ -193,3 +200,6 @@ class LightGBMRanker(Executor):
                 f'model {self.model_path} does not exist. Please train your model first.'
                 'docs without changes will be passed to the next Executor!'
             )
+
+    def close(self):
+        self.booster.save_model(self.model_path)
