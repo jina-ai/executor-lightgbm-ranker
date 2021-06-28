@@ -2,12 +2,12 @@ __copyright__ = "Copyright (c) 2020-2021 Jina AI Limited. All rights reserved."
 __license__ = "Apache-2.0"
 
 import os
+import logging
 from typing import Dict, Optional, Tuple, List
 
 import lightgbm
 import numpy as np
 from jina import Executor, DocumentArray, requests
-from jina.logging.predefined import default_logger
 
 
 class LightGBMRanker(Executor):
@@ -155,7 +155,20 @@ class LightGBMRanker(Executor):
             keep_training_booster=True,
             categorical_feature=categorical_feature,
         )
+
+    @requests(on='/dump')
+    def dump(self):
         self.booster.save_model(self.model_path)
+
+    @requests(on='/load')
+    def load(self, parameters: Dict, **kwargs):
+        model_path = parameters.get('model_path', None)
+        if model_path:
+            self.booster = lightgbm.Booster(model_file=model_path)
+        else:
+            logging.warning(
+                f'Model {model_path} does not exist. Please specify the correct model_path inside parameters.'
+            )
 
     @requests(on='/search')
     def rank(self, docs: DocumentArray, **kwargs):
@@ -174,7 +187,7 @@ class LightGBMRanker(Executor):
             for prediction, match in zip(predictions, docs.traverse_flat(['m'])):
                 match.scores[self.label] = prediction
         else:
-            default_logger.warning(
+            logging.warning(
                 f'model {self.model_path} does not exist. Please train your model first.'
                 'docs without changes will be passed to the next Executor!'
             )
