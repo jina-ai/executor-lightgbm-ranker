@@ -52,7 +52,6 @@ class LightGBMRanker(Executor):
         label: str = 'relevance',
         categorical_query_features: Optional[List[str]] = None,
         categorical_match_features: Optional[List[str]] = None,
-        query_features_before: bool = True,
         *args,
         **kwargs,
     ):
@@ -157,7 +156,7 @@ class LightGBMRanker(Executor):
         )
 
     @requests(on='/dump')
-    def dump(self):
+    def dump(self, **kwargs):
         self.booster.save_model(self.model_path)
 
     @requests(on='/load')
