@@ -28,7 +28,10 @@ Use the prebuilt images from JinaHub in your python codes,
 ```python
 from jina import Flow
 	
-f = Flow().add(uses='jinahub+docker://LightGBMRanker')
+f = Flow().add(
+    uses='jinahub+docker://LightGBMRanker',
+    volumes='/your_home_folder/.lightgbm:/root/.lightgbm',
+)
 ```
 
 or in the `.yml` config.
@@ -38,6 +41,7 @@ jtype: Flow
 pods:
   - name: encoder
     uses: 'jinahub+docker://LightGBMRanker'
+    volumes: '/your_home_folder/.lightgbm:/root/.lightgbm'
 ```
 
 #### using source codes
@@ -131,4 +135,3 @@ with f:
 ## 🔍️ Reference
 - [LightGBM](https://lightgbm.readthedocs.io/en/latest/)
 - Learning-to-rank [wiki](https://en.wikipedia.org/wiki/Learning_to_rank)
-
