@@ -37,7 +37,7 @@ def test_train_offline(documents, model_path):
         f.post(on='/search', inputs=documents, on_done=validate_initial_ranking)
 
     # Step 2, train a model (train), will leave an model inside workdir
-    assert os.path.exists(model_path)
+    assert not os.path.exists(model_path)
     with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
         f.post(on='/train', inputs=documents)
         f.post(on='/dump', parameters={'model_path': model_path})
