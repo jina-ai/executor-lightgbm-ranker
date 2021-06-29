@@ -1,4 +1,4 @@
-jtype: MyDummyExecutor
+jtype: LightGBMRanker
 metas:
   py_modules:
-    - MODULE_NAME.py
+    - lightgbm_ranker.py

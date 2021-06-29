@@ -1,12 +1,7 @@
-# 📝 PLEASE READ [THE GUIDELINES](.github/GUIDELINES.md) BEFORE STARTING.
+# ✨ LightGBMRanker
 
-# 🏗️ PLEASE CHECK OUT [STEP-BY-STEP](.github/STEP_BY_STEP.md)
-
-----
-
-# ✨ MyDummyExecutor
-
-**MyDummyExecutor** is a class that ...
+**LightGBMRanker** is a class that allow user to train & rank your data with a Learning-to-Rank scheme,
+this allows us to improve your ranking continuously.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -21,7 +16,7 @@
 
 ## 🌱 Prerequisites
 
-Some conditions to fulfill before running the executor
+None
 
 ## 🚀 Usages
 
@@ -33,7 +28,10 @@ Use the prebuilt images from JinaHub in your python codes,
 ```python
 from jina import Flow
 	
-f = Flow().add(uses='jinahub+docker://MyDummyExecutor')
+f = Flow().add(
+    uses='jinahub+docker://LightGBMRanker',
+    volumes='/your_home_folder/.lightgbm:/root/.lightgbm',
+)
 ```
 
 or in the `.yml` config.
@@ -42,7 +40,8 @@ or in the `.yml` config.
 jtype: Flow
 pods:
   - name: encoder
-    uses: 'jinahub+docker://MyDummyExecutor'
+    uses: 'jinahub+docker://LightGBMRanker'
+    volumes: '/your_home_folder/.lightgbm:/root/.lightgbm'
 ```
 
 #### using source codes
@@ -51,7 +50,7 @@ Use the source codes from JinaHub in your python codes,
 ```python
 from jina import Flow
 	
-f = Flow().add(uses='jinahub://MyDummyExecutor')
+f = Flow().add(uses='jinahub://LightGBMRanker')
 ```
 
 or in the `.yml` config.
@@ -60,25 +59,25 @@ or in the `.yml` config.
 jtype: Flow
 pods:
   - name: encoder
-    uses: 'jinahub://MyDummyExecutor'
+    uses: 'jinahub://LightGBMRanker'
 ```
 
 
 ### 📦️ Via Pypi
 
-1. Install the `jinahub-MY-DUMMY-EXECUTOR` package.
+1. Install the `jinahub-lightgbm-ranker` package.
 
 	```bash
-	pip install git+https://github.com/jina-ai/EXECUTOR_REPO_NAME.git
+	pip install git+https://github.com/jina-ai/executor-lightgbm-ranker.git
 	```
 
-1. Use `jinahub-MY-DUMMY-EXECUTOR` in your code
+1. Use `jinahub-lightgbm-ranker` in your code
 
 	```python
 	from jina import Flow
-	from jinahub.SUB_PACKAGE_NAME.MODULE_NAME import MyDummyExecutor
+	from jinahub.ranker.lightgbm_ranker import LightGBMRanker
 	
-	f = Flow().add(uses=MyDummyExecutor)
+	f = Flow().add(uses=LightGBMRanker)
 	```
 
 
@@ -87,9 +86,9 @@ pods:
 1. Clone the repo and build the docker image
 
 	```shell
-	git clone https://github.com/jina-ai/EXECUTOR_REPO_NAME.git
-	cd EXECUTOR_REPO_NAME
-	docker build -t my-dummy-executor-image .
+	git clone https://github.com/jina-ai/executor-lightgbm-ranker.git
+	cd executor-lightgbm-ranker
+	docker build -t executor-lightgbm-ranker .
 	```
 
 1. Use `my-dummy-executor-image` in your codes
@@ -97,7 +96,7 @@ pods:
 	```python
 	from jina import Flow
 	
-	f = Flow().add(uses='docker://my-dummy-executor-image:latest')
+	f = Flow().add(uses='docker://executor-lightgbm-ranker:latest')
 	```
 	
 
@@ -107,22 +106,32 @@ pods:
 ```python
 from jina import Flow, Document
 
-f = Flow().add(uses='jinahub+docker://MyDummyExecutor')
+f = Flow().add(
+    uses='jinahub+docker://LightGBMRanker',
+    volumes='/your_home_folder/.lightgbm:/root/.lightgbm',
+)
+
+
+def check_resp(resp):
+    for doc in resp.data.docs:
+        for match in doc.matches:
+            print(f'score of relevance: {match.scores["relevance"]}')
+
 
 with f:
-    resp = f.post(on='foo', inputs=Document(), return_resutls=True)
-	print(f'{resp}')
+    f.post(on='/train', inputs=Document(text='hello world'), on_done=check_resp)
+    f.post(on='/search', inputs=Document(text='hello world'), on_done=check_resp)
 ```
 
 ### Inputs 
 
-`Document` with `blob` of the shape `256`.
+`Document` with `tags`. The specified keys in the `tags` will be considered as features to train/rank your data.
 
 ### Returns
 
-`Document` with `embedding` fields filled with an `ndarray` of the shape `embedding_dim` (=128, by default) with `dtype=nfloat32`.
+`Document` matches with `scores` filled based on your specified `label`. By default the label is `relevance`.
 
 
 ## 🔍️ Reference
-- Some reference
-
+- [LightGBM](https://lightgbm.readthedocs.io/en/latest/)
+- Learning-to-rank [wiki](https://en.wikipedia.org/wiki/Learning_to_rank)
