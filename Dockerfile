@@ -1,4 +1,4 @@
-FROM jinaai/jina:2.0.0rc8
+FROM jinaai/jina:2.0.0rc11
 
 # install git
 RUN apt-get -y update && apt-get install -y git && apt-get install libgomp1
