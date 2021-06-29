@@ -102,11 +102,21 @@ pods:
 ```python
 from jina import Flow, Document
 
-f = Flow().add(uses='jinahub+docker://LightGBMRanker')
+f = Flow().add(
+    uses='jinahub+docker://LightGBMRanker',
+    volumes='/your_home_folder/.lightgbm:/root/.lightgbm',
+)
+
+
+def check_resp(resp):
+    for doc in resp.data.docs:
+        for match in doc.matches:
+            print(f'score of relevance: {match.scores["relevance"]}')
+
 
 with f:
-    resp = f.post(on='/train', inputs=Document(), return_resutls=True)
-    resp = f.post(on='/search', inputs=Document(), return_resutls=True)
+    f.post(on='/train', inputs=Document(text='hello world'), on_done=check_resp)
+    f.post(on='/search', inputs=Document(text='hello world'), on_done=check_resp)
 ```
 
 ### Inputs 

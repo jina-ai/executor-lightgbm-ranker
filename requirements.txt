@@ -1,2 +1,2 @@
 lightgbm==3.2.0
-jina==2.0.0rc7
+jina==2.0.0rc8
