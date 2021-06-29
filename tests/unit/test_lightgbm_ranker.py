@@ -68,4 +68,4 @@ def test_lightgbm_train(model_path, documents, param):
             assert match.scores['relevance']
             scores.append(match.scores['relevance'].value)
     assert len(scores) == 150
-    assert len(set(scores)) == 3  # we have 3 queries.
+    assert scores[0] > scores[-1]

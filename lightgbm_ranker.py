@@ -26,6 +26,7 @@ class LightGBMRanker(Executor):
     label will be used to assign a score to :attr:`Document.scores` field.
     :param categorical_query_features: name of features contained in `query_features` corresponding to categorical features.
     :param categorical_match_features: name of features contained in `match_features` corresponding to categorical features.
+    :param query_features_before: True if `query_feature_names` must be placed before the `match` ones in the `dataset` used for prediction.
     :param args: Additional positional arguments
     :param kwargs: Additional keyword arguments
     .. note::
@@ -55,6 +56,7 @@ class LightGBMRanker(Executor):
         label: str = 'relevance',
         categorical_query_features: Optional[List[str]] = None,
         categorical_match_features: Optional[List[str]] = None,
+        query_features_before: bool = False,
         *args,
         **kwargs,
     ):
@@ -65,6 +67,7 @@ class LightGBMRanker(Executor):
         self.match_features = match_features
         self.categorical_query_features = categorical_query_features
         self.categorical_match_features = categorical_match_features
+        self.query_features_before = query_features_before
         self.label = label
         if self.model_path and os.path.exists(self.model_path):
             self.booster = lightgbm.Booster(model_file=self.model_path)
@@ -82,9 +85,7 @@ class LightGBMRanker(Executor):
         else:
             self.booster = None
 
-    def _get_features_dataset(
-        self, docs: DocumentArray, task: str = 'predict'
-    ) -> 'lightgbm.Dataset':
+    def _get_features_dataset(self, docs: DocumentArray) -> 'lightgbm.Dataset':
         q_features, m_features, group, labels = [], [], [], []
         query_feature_names = self.query_features
         if self.categorical_query_features:
@@ -123,7 +124,7 @@ class LightGBMRanker(Executor):
             categorical_feature=self.categorical_match_features,
             free_raw_data=False,
         )
-        if task == 'predict':
+        if self.query_features_before:
             return query_dataset.construct().add_features_from(
                 match_dataset.construct()
             )
@@ -142,7 +143,7 @@ class LightGBMRanker(Executor):
         :param docs: :class:`DocumentArray` passed by the user or previous executor.
         :param kwargs: Additional key value arguments.
         """
-        train_set = self._get_features_dataset(docs, task='train')
+        train_set = self._get_features_dataset(docs)
         categorical_feature = []
         if self.categorical_query_features:
             categorical_feature += self.categorical_query_features

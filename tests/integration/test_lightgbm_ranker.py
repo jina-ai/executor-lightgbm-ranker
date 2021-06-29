@@ -37,10 +37,11 @@ def test_train_offline(documents, model_path):
         f.post(on='/search', inputs=documents, on_done=validate_initial_ranking)
 
     # Step 2, train a model (train), will leave an model inside workdir
-    assert not os.path.exists(model_path)
+    assert os.path.exists(model_path)
     with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
         f.post(on='/train', inputs=documents)
-    assert os.path.exists(model_path)  # after train, create a model in model path
+        f.post(on='/dump', parameters={'model_path': model_path})
+    assert os.path.exists(model_path)  # after train, dump a model in model path
 
     # Step 3, call the search endpoint again, assure the relevance
     def validate_initial_ranking2(resp):
@@ -48,8 +49,8 @@ def test_train_offline(documents, model_path):
         for doc in resp.docs:
             for match in doc.matches:
                 scores.append(match.scores['relevance'].value)
-        scores = list(set(scores))
-        assert scores[1] < scores[0] < scores[2]
+        assert len(scores) == 150
+        assert scores[0] >= scores[1] >= scores[2] >= scores[-2] >= scores[-1]
 
     with Flow.load_config(os.path.join(cur_dir, 'flow_rank_train.yml')) as f:
         f.post(on='/search', inputs=documents, on_done=validate_initial_ranking2)
